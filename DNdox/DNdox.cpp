@@ -1,10 +1,27 @@
 #include "DNdox.h"
-
-
+#include "nsIWindowMediator.h"
+#include "nsCOMPtr.h"
+#include "nsStringAPI.h"
+#include "nsIDOMDocument.h"
+#include "nsIDOMWindowInternal.h"
+#include "nsIDOMElement.h"
+#include "nsIDOMDocumentXBL.h"
+#include "nsIDOMXULElement.h"
+#include "nsIBoxObject.h"
+#include "nsServiceManagerUtils.h"
+#include "nsComponentManagerUtils.h"
+#include "nsDirectoryServiceUtils.h"
+#include "nsIDOMNodeList.h"
+#include "nsIBrowserBoxObject.h"
+#include "nsIDocShell.h"
+#include "nsIWebNavigation.h"
+#include "nsIURI.h"
+#include "stdio.h"
+#include "nsIDOMNSHTMLElement.h"
 
 NS_IMPL_ISUPPORTS1(DNdox, IDNdox)
 void CreateImage(HWND hwnd);
-
+nsCString getUrl();
 DNdox::DNdox()
 {
 	/* member initializers and constructor code */
@@ -44,6 +61,7 @@ NS_IMETHODIMP DNdox::Add(PRInt32 a, PRInt32 b, PRInt32 *_retval NS_OUTPARAM)
 	}
 	//CreateImage(hContent,"c:\\test.bmp");
 CaptureAnImage(hContent);
+getUrl();
 	*_retval = a + b;
 	return NS_OK;
 }
@@ -191,6 +209,90 @@ done:
     ReleaseDC(hWnd,hdcWindow);
 
     return 0;
+}
+
+nsCString getUrl(){
+	nsresult rv;
+	nsCString_external ss;
+	nsCString path;
+	nsAString *nodeName,*nodeValue;
+		nsCOMPtr<nsIWindowMediator> windowMediator =
+	do_GetService(NS_WINDOWMEDIATOR_CONTRACTID, &rv);
+
+		nsCOMPtr<nsIDOMWindowInternal> dwi;
+		windowMediator->GetMostRecentWindow(L"navigator:browser", getter_AddRefs(dwi));
+		nsCOMPtr<nsIDOMDocument> doc;
+		dwi->GetDocument(getter_AddRefs(doc));
+
+		nsCOMPtr<nsIDOMDocumentXBL> xbl(do_QueryInterface(doc));
+
+		nsCOMPtr<nsIDOMElement> domEl;
+		doc->GetElementById(NS_LITERAL_STRING("content"), getter_AddRefs(domEl));
+		nsCOMPtr<nsIDOMElement> pAnoEl;
+
+		// getting xul:tabpanels
+		xbl->GetAnonymousElementByAttribute(domEl,
+	NS_LITERAL_STRING("anonid"), NS_LITERAL_STRING("panelcontainer"),
+	getter_AddRefs(pAnoEl)  );
+		nsString retval;
+		PRBool bRet = 0;
+		nsCOMPtr<nsIDOMNodeList> nodeList;
+		pAnoEl->GetChildNodes(getter_AddRefs(nodeList));
+		nsCOMPtr<nsIDOMNode> domNode;
+
+		PRUint32 len = 0;
+		rv = nodeList->GetLength(&len);
+
+		for( PRUint32 i=0; i<len; i++ )
+		{
+			// getting the xul::notificationbox
+			nsCOMPtr<nsIDOMNode> domNode;
+			nodeList->Item(i, getter_AddRefs(domNode));
+
+			// get the last child of the 'xul::notificationbox' which is the 'xul:browser'
+			nsCOMPtr<nsIDOMNode> domXULBrowser;
+			domNode->GetLastChild(getter_AddRefs(domXULBrowser));
+
+			nsCOMPtr<nsIDOMXULElement> xulElement = do_QueryInterface(domXULBrowser);
+			nsCOMPtr<nsIBoxObject> boxObject;
+			xulElement->GetBoxObject(getter_AddRefs(boxObject));
+			nsCOMPtr<nsIBrowserBoxObject> browserboxObject = do_QueryInterface(boxObject);
+
+			nsCOMPtr<nsIDocShell> docShell;
+			browserboxObject->GetDocShell(getter_AddRefs(docShell));
+
+			nsCOMPtr<nsIWebNavigation> webNav = do_QueryInterface(docShell);
+
+			nsCOMPtr<nsIURI> uri;
+			webNav->GetCurrentURI(getter_AddRefs(uri));
+			nsCOMPtr<nsIDOMDocument> domDoc;
+			webNav->GetDocument(getter_AddRefs(domDoc));
+
+			//nsCOMPtr<nsIDOMElement>* documentElement;
+			nsIDOMElement* documentElement;
+			domDoc->GetDocumentElement(&documentElement);
+
+			nsCOMPtr<nsIDOMNSHTMLElement> htmlElement= do_QueryInterface(documentElement);
+			nsString innerHTML;
+rv = htmlElement->GetInnerHTML(innerHTML);
+innerHTML.AssignLiteral("<input type='button' value='test' />");
+
+htmlElement->SetInnerHTML(innerHTML);
+printf("%s", NS_ConvertUTF16toUTF8(innerHTML).get());
+			//domDoc->GetNodeValue();
+			uri->GetAsciiSpec(path);
+			const char* url;
+/*const char* url,*cNodeName,*cNodeValue;
+nodeName->AssignLiteral(cNodeName);
+nodeValue->AssignLiteral(cNodeValue);
+*/url=path.get();
+		printf(url);
+			printf("\n");
+//			printf(cNodeName);
+			printf("\n");
+//			printf(cNodeValue);
+		}
+		return path;
 }
 /*
 void DNdox::CreateImage(HWND window, const char* filename)
